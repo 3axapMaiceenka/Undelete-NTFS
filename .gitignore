@@ -1,0 +1,8 @@
+*.sln
+*.vcxproj
+*.filters
+*.user
+.vs/
+NTFS/Debug/
+Debug/
+Release/
