@@ -4,5 +4,6 @@
 *.user
 .vs/
 NTFS/Debug/
+NTFS/Release/
 Debug/
 Release/
