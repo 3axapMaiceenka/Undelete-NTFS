@@ -1,9 +1,10 @@
 #include "PartitionTableParser.h"
+#include <stdexcept>
 
 PartitionTableParser::PartitionTableParser()
-	: m_pLogicalDrives(new std::list<PartitionTableEntry>)
+	: m_pLogicalDrives(std::make_shared<std::list<PartitionTableEntry>>())
 {
-	m_hPhysicalDrive = CreateFile(m_pszPhysicalDrive, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	m_hPhysicalDrive = CreateFile(PHYSICAL_DRIVE, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (m_hPhysicalDrive == INVALID_HANDLE_VALUE)
 	{
 		throw std::runtime_error("Can't open physical drive");
@@ -12,17 +13,24 @@ PartitionTableParser::PartitionTableParser()
 
 PartitionTableParser::~PartitionTableParser()
 {
-	delete m_pLogicalDrives;
 	CloseHandle(m_hPhysicalDrive);
+}
+
+inline const std::shared_ptr<std::list<PartitionTableEntry>> PartitionTableParser::getLogicalDrives() const
+{ 
+	return m_pLogicalDrives; 
 }
 
 void PartitionTableParser::parse()
 {
-	CHAR caSector[m_wSectorSize];
+	CHAR caSector[SECTOR_SIZE];
 	DWORD dwNumberOfBytes = 0;
 	DWORD dwPrimaryExPartitionFirstSec = 0;
 
-	ReadFile(m_hPhysicalDrive, caSector, m_wSectorSize, &dwNumberOfBytes, NULL); // read MBR
+	if (!ReadFile(m_hPhysicalDrive, caSector, SECTOR_SIZE, &dwNumberOfBytes, NULL)) // read MBR
+	{
+		throw std::runtime_error("Failed read MBR");
+	}
 
 	PartitionTableEntry* pEntry = (PartitionTableEntry*)(caSector + 0x1be); // pEntry is set to the start of the partition table
 
@@ -43,20 +51,25 @@ void PartitionTableParser::parse()
 
 	if (!dwPrimaryExPartitionFirstSec) return;
 
-	parseExetendedPartition(dwPrimaryExPartitionFirstSec);
+	parseExetendedPartition(dwPrimaryExPartitionFirstSec); // throws std::runtime_error
 }
 
 void PartitionTableParser::parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec)
 {
-	CHAR caSector[m_wSectorSize];
+	CHAR caSector[SECTOR_SIZE];
 	DWORD dwPartitionFirstSector = dwPrimaryExPartitionFirstSec;
 	DWORD dwNumberOfBytes;
 	PartitionTableEntry* pEntry;
 
 	while (1)
 	{
-		SetFilePointer(m_hPhysicalDrive, dwPartitionFirstSector * m_wSectorSize, NULL, FILE_BEGIN);
-		ReadFile(m_hPhysicalDrive, caSector, m_wSectorSize, &dwNumberOfBytes, NULL);
+		SetFilePointer(m_hPhysicalDrive, dwPartitionFirstSector * SECTOR_SIZE, NULL, FILE_BEGIN);
+
+		if (!ReadFile(m_hPhysicalDrive, caSector, SECTOR_SIZE, &dwNumberOfBytes, NULL))
+		{
+			throw std::runtime_error("Failed read extended partition tbale");
+		}
+
 		pEntry = (PartitionTableEntry*)(caSector + 0x1be); // pEntry is set to the start of the extended partition table
 
 		if (pEntry->m_cPartitionType == NTFS_PARTITION) // first entry corresponds to the logical drive

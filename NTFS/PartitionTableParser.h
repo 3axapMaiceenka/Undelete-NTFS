@@ -1,11 +1,11 @@
 #pragma once
 
 #include <windows.h>
-#include <stdexcept>
+#include <memory>
 #include <list>
 
-const char* m_pszPhysicalDrive = "\\\\.\\PhysicalDrive0";
-constexpr WORD m_wSectorSize = 512;
+#define SECTOR_SIZE 512
+#define PHYSICAL_DRIVE "\\\\.\\PhysicalDrive0"
 
 enum PartitionType
 {
@@ -35,19 +35,19 @@ class PartitionTableParser
 {
 public:
 	
+	void parse();
+
 	PartitionTableParser();
 
 	~PartitionTableParser();
 
-	void parse();
-
-	const std::list<PartitionTableEntry> getLogicalDrives() const { return *m_pLogicalDrives; }
+	inline const std::shared_ptr<std::list<PartitionTableEntry>> getLogicalDrives() const;
 
 private:
 
 	void parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec);
 
-	std::list<PartitionTableEntry>* m_pLogicalDrives; // logical drives with NTFS file system
+	std::shared_ptr<std::list<PartitionTableEntry>> m_pLogicalDrives; // logical drives with NTFS file system
 	HANDLE m_hPhysicalDrive;
 };
 
