@@ -1,4 +1,5 @@
 #include "PartitionTableParser.h"
+#include "DrivesInfo.h"
 
 #include <iostream>
 
@@ -8,6 +9,16 @@ int main(int argc, char** argv)
 	{
 		PartitionTableParser parser;
 		parser.parse();
+
+		try
+		{
+			DrivesInfo di(parser.getLogicalDrives());
+			di.getDrivesInfo();
+		}
+		catch (std::logic_error error)
+		{
+			std::cout << error.what();
+		}
 	}
 	catch (std::runtime_error error)
 	{

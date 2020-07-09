@@ -41,7 +41,7 @@ public:
 
 	~PartitionTableParser();
 
-	inline const std::shared_ptr<std::list<PartitionTableEntry>> getLogicalDrives() const;
+	const std::shared_ptr<std::list<PartitionTableEntry>> getLogicalDrives() const;
 
 private:
 

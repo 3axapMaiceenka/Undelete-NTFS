@@ -16,7 +16,7 @@ PartitionTableParser::~PartitionTableParser()
 	CloseHandle(m_hPhysicalDrive);
 }
 
-inline const std::shared_ptr<std::list<PartitionTableEntry>> PartitionTableParser::getLogicalDrives() const
+const std::shared_ptr<std::list<PartitionTableEntry>> PartitionTableParser::getLogicalDrives() const
 { 
 	return m_pLogicalDrives; 
 }
