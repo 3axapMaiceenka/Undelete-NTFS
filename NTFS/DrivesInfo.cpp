@@ -1,11 +1,9 @@
 #include "DrivesInfo.h"
 #include "PartitionTableParser.h"
 
-#include <iostream>
-
-DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives)
+ntfs::DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives)
 	: m_pLogicalDrives(pDrives),
-	m_pDrivesMFT(new std::vector<MFTInfo>(pDrives->size())),
+	m_pDrivesMFT(std::make_shared<std::vector<MFTInfo>>(pDrives->size())),
 	m_wDrivesNumber((WORD)pDrives->size())
 {
 	if (!m_wDrivesNumber)
@@ -14,15 +12,10 @@ DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDr
 	}
 }
 
-DrivesInfo::~DrivesInfo()
-{
-	delete m_pDrivesMFT;
-}
-
 /*
 	Reads partition boot sector (first sector of partition), stores MFT info for every partition
 */
-void DrivesInfo::getDrivesInfo()
+void ntfs::DrivesInfo::getDrivesInfo()
 {
 	char caSector[SECTOR_SIZE];
 	char caOemId[OEM_ID_LENGTH];
@@ -71,9 +64,14 @@ void DrivesInfo::getDrivesInfo()
 		
 		m_pDrivesMFT->at(i).m_ulFirstMFTCluster = *((UINT64*)(caSector + 0x30));
 		m_pDrivesMFT->at(i).m_ulNumnerOfSectors = *((UINT64*)(caSector + 0x28));
+		m_pDrivesMFT->at(i).m_dwVolumeStartingAddress = entry->m_dwLBAFirstSector;
 		++entry;
 	}
 
 	CloseHandle(hDrive);
 }
 
+const std::shared_ptr<std::vector<ntfs::MFTInfo>> ntfs::DrivesInfo::getDrivesMFT() const
+{
+	return m_pDrivesMFT;
+}

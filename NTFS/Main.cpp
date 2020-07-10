@@ -1,5 +1,6 @@
 #include "PartitionTableParser.h"
 #include "DrivesInfo.h"
+#include "MFTParser.h"
 
 #include <iostream>
 
@@ -12,8 +13,16 @@ int main(int argc, char** argv)
 
 		try
 		{
-			DrivesInfo di(parser.getLogicalDrives());
+			ntfs::DrivesInfo di(parser.getLogicalDrives());
 			di.getDrivesInfo();
+
+			auto pDrivesMft = di.getDrivesMFT();
+
+			for (auto it = pDrivesMft->cbegin(); it != pDrivesMft->cend(); ++it)
+			{
+				ntfs::MFTParser mftParser(*it);
+				mftParser.readFirstRecord();
+			}
 		}
 		catch (std::logic_error error)
 		{

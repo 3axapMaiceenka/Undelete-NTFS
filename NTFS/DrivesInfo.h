@@ -5,33 +5,39 @@
 #include <list>
 #include <vector>
 
+struct PartitionTableEntry;
+
+namespace ntfs
+{
+
 #define OEM_ID "NTFS    "
 #define OEM_ID_LENGTH 9
 
-struct PartitionTableEntry;
+	struct MFTInfo
+	{
+		UINT64 m_ulNumnerOfSectors;
+		UINT64 m_ulFirstMFTCluster;
+		DWORD  m_dwVolumeStartingAddress;
+		WORD   m_wRecordSize; // in bytes
+		CHAR   m_cSectorsPerCluster;
+	};
 
-struct MFTInfo
-{
-	UINT64 m_ulNumnerOfSectors;
-	UINT64 m_ulFirstMFTCluster;
-	WORD   m_wRecordSize; // in bytes
-	CHAR   m_cSectorsPerCluster;
-};
+	class DrivesInfo
 
-class DrivesInfo
+	{
+	public:
 
-{
-public:
-	
-	DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives);
+		DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives);
 
-	~DrivesInfo();
+		void getDrivesInfo();
 
-	void getDrivesInfo();
+		const std::shared_ptr<std::vector<MFTInfo>> getDrivesMFT() const;
 
-private:
-	std::shared_ptr<std::list<PartitionTableEntry>> m_pLogicalDrives;
-	std::vector<MFTInfo>* m_pDrivesMFT;
-	WORD m_wDrivesNumber;
-};
+	private:
+		std::shared_ptr<std::list<PartitionTableEntry>> m_pLogicalDrives;
+		std::shared_ptr<std::vector<MFTInfo>> m_pDrivesMFT;
+		WORD m_wDrivesNumber;
+	};
+
+} // namespace
 
