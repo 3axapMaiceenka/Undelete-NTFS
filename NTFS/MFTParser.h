@@ -5,6 +5,7 @@
 namespace ntfs
 {
 	struct MFTInfo;
+	class  Runlist;
 
 	struct MFTEntryHeader
 	{
@@ -90,7 +91,7 @@ namespace ntfs
 		UINT64 m_USN;
 	};
 
-	enum STDANDART_INFORMATION_FLAGS // the same falgs are used in $FILE_NAME attribute
+	enum STANDART_INFORMATION_FLAGS // the same falgs are used in $FILE_NAME attribute
 	{
 		READ_ONLY = 1,
 		HIDDEN_FILE,
@@ -118,7 +119,7 @@ namespace ntfs
 		UINT64 m_uActualFileSize;
 		DWORD  m_dwFalgs;
 		DWORD  m_dwConnectionPoint;
-		CHAR   m_cNameLenght; // in unicode characters
+		CHAR   m_cNameLength; // in unicode characters
 		CHAR   m_cNamespace;
 
 		// file name in unicode is located right after last field of that structure
@@ -135,8 +136,8 @@ namespace ntfs
 		void readFirstRecord(); // make private
 
 	private:
-
 		MFTInfo* m_pMft;
+		Runlist* m_pRunlist;
 		HANDLE   m_hDrive;
 	};
 
