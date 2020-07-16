@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <atlstr.h>
 
 namespace ntfs
 {
@@ -25,7 +26,7 @@ namespace ntfs
 
 	enum ATTRIBUTE_TYPES
 	{
-		STANDARD_INFORMATION = 0x10,
+		STANDART_INFORMATION = 0x10,
 		ATTRIBUTE_LIST = 0x20,
 		FILE_NAME = 0x30,
 		OBJECT_ID = 0x40,
@@ -94,7 +95,7 @@ namespace ntfs
 	enum STANDART_INFORMATION_FLAGS // the same falgs are used in $FILE_NAME attribute
 	{
 		READ_ONLY = 1,
-		HIDDEN_FILE,
+		HIDDEN_FILE = 2,
 		SYSTEM_FILE = 4,
 		ARCHIVE_FILE = 0x20,
 		DEVICE = 0x40,
@@ -125,6 +126,31 @@ namespace ntfs
 		// file name in unicode is located right after last field of that structure
 	};
 
+	struct VOLUME_INFORMATION_ATTR
+	{
+		CHAR m_caUnused[8];
+		CHAR m_cMainVersion;
+		CHAR m_cAdditionalVersion;
+		WORD m_wFlags;
+	};
+
+	enum VOLUME_INFORMATION_FLAGS
+	{
+		UPDATING = 1,
+		CHANGING_LOGFILE_SIZE = 2,
+		UPDATING_VOLUME = 4,
+		MOUNTING_IN_NT = 8,
+		CHANGE_LOG_DELETING = 0x10,
+		OBJECT_IDENTIFIERS_RECOVERY = 0x20,
+		CHANGING_CHKDSK = 0x8000
+	};
+
+	struct VolumeInfo
+	{
+		VOLUME_INFORMATION_ATTR m_VolInfoAttr;
+		CString m_VolumeLabel;
+	};
+
 	class MFTParser
 	{
 	public:
@@ -133,12 +159,22 @@ namespace ntfs
 
 		~MFTParser();
 
-		void readFirstRecord(); // make private
+		void readFirstRecord(); 
+
+		void findVolumeInformation(); 
+
+		const VolumeInfo getVolumeInfo() const;
 
 	private:
+
+		BOOLEAN findVolumeAttributes(AttributeHeader* pAttrHeader);
+
+		BOOLEAN seek(UINT64 uDIstance, DWORD dwMoveMethod) const;
+
 		MFTInfo* m_pMft;
 		Runlist* m_pRunlist;
 		HANDLE   m_hDrive;
+		VolumeInfo* m_pVolumeInfo;
 	};
 
 } // namespace

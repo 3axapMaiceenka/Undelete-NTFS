@@ -1,6 +1,8 @@
 #include "DrivesInfo.h"
 #include "PartitionTableParser.h"
 
+#include <iostream>
+
 ntfs::DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives)
 	: m_pLogicalDrives(pDrives),
 	m_pDrivesMFT(std::make_shared<std::vector<MFTInfo>>(pDrives->size())),
@@ -17,15 +19,19 @@ ntfs::DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry
 */
 void ntfs::DrivesInfo::getDrivesInfo()
 {
-	char caSector[SECTOR_SIZE];
-	char caOemId[OEM_ID_LENGTH];
+	CHAR caSector[SECTOR_SIZE];
+	CHAR caOemId[OEM_ID_LENGTH];
 	HANDLE hDrive = CreateFile(PHYSICAL_DRIVE, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	DWORD dwBytesRead;
 
 	int i = 0;
 	for (auto entry = m_pLogicalDrives->cbegin(); entry != m_pLogicalDrives->cend(); i++)
 	{
-		SetFilePointer(hDrive, entry->m_dwLBAFirstSector * SECTOR_SIZE, NULL, FILE_BEGIN);
+		UINT64 uPartitionBeiginning = (UINT64)entry->m_dwLBAFirstSector * SECTOR_SIZE;
+		LONG lDistanceToMoveLow = (LONG)(uPartitionBeiginning & 0x00000000ffffffff);
+		LONG lDistanceToMoveHigh = (LONG)(uPartitionBeiginning >> 32);
+
+		SetFilePointer(hDrive, lDistanceToMoveLow, &lDistanceToMoveHigh, FILE_BEGIN);
 		ReadFile(hDrive, caSector, SECTOR_SIZE, &dwBytesRead, NULL); // read boot sector
 
 		strncpy_s(caOemId, caSector + 3, OEM_ID_LENGTH); // OEM_ID is the special field, which indicates NTFS file system in the partition
