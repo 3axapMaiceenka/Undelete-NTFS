@@ -2,10 +2,12 @@
 #include "DrivesInfo.h"
 #include "PartitionTableParser.h"
 #include "Runlist.h"
+#include "DeletedFile.h"
 
 ntfs::MFTParser::MFTParser(const MFTInfo& mftInfo)
 	: m_pMft(new MFTInfo(mftInfo)),
-	m_pRunlist(NULL)
+	m_pRunlist(NULL),
+	m_pDeletedFiles(std::make_shared<std::list<DeletedFile>>())
 {
 	m_hDrive = CreateFile(PHYSICAL_DRIVE, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 }
@@ -43,33 +45,7 @@ void ntfs::MFTParser::readFirstRecord()
 
 void ntfs::MFTParser::findVolumeInformation()
 {
-	CHAR* pszRecord = new CHAR[m_pMft->m_wRecordSize];
-	BOOLEAN bFound = FALSE;
-
-	for (int i = 0; !bFound && i < m_pRunlist->size(); i++)
-	{
-		UINT64 uDistanceToMove = (UINT64)(m_pMft->m_dwVolumeStartingAddress + m_pRunlist->at(0).m_lRunOffset * m_pMft->m_cSectorsPerCluster) * SECTOR_SIZE;
-		DWORD dwSectorsRead = 0;
-
-		seek(uDistanceToMove, FILE_BEGIN);
-
-		do
-		{		
-			ReadFile(m_hDrive, pszRecord, m_pMft->m_wRecordSize, (DWORD*)&uDistanceToMove, NULL);
-			dwSectorsRead += m_pMft->m_wRecordSize / SECTOR_SIZE;
-
-			MFTEntryHeader* pHeader = (MFTEntryHeader*)pszRecord;
-			AttributeHeader* pAttrHeader = (AttributeHeader*)(pszRecord + pHeader->m_wAttributeOffset);
-
-			if ((bFound = findVolumeAttributes(pAttrHeader)))
-			{
-				break;
-			}
-
-		} while (dwSectorsRead < m_pRunlist->at(i).m_uRunLength / m_pMft->m_cSectorsPerCluster);	
-	}
-
-	delete[] pszRecord;
+	iterate(&MFTParser::findVolumeAttributes);
 }
 
 inline BOOLEAN ntfs::MFTParser::seek(UINT64 uDistance, DWORD dwMoveMethod) const
@@ -85,11 +61,12 @@ const ntfs::VolumeInfo ntfs::MFTParser::getVolumeInfo() const
 	return *m_pVolumeInfo;
 }
 
-// pAttrHeader points to the first attribute in a record
-BOOLEAN ntfs::MFTParser::findVolumeAttributes(AttributeHeader* pAttrHeader)
+// checks if record corresponds to $Volume file, if so, saves volume attributes
+BOOLEAN ntfs::MFTParser::findVolumeAttributes(MFTEntryHeader* pHeader, UINT64 uAddress)
 {
 	BOOLEAN bFoundVolumeName = FALSE;
 	BOOLEAN bFoundVolumeInformation = FALSE;
+	AttributeHeader* pAttrHeader = (AttributeHeader*)((CHAR*)pHeader + pHeader->m_wAttributeOffset);
 
 	if (pAttrHeader->m_dwAttributeTypeID == STANDART_INFORMATION)
 	{
@@ -111,16 +88,8 @@ BOOLEAN ntfs::MFTParser::findVolumeAttributes(AttributeHeader* pAttrHeader)
 
 					if (wVolumeNameLength)
 					{
-						WCHAR* pszVolumeName = new WCHAR[wVolumeNameLength + 1];
-
-						wmemcpy_s(pszVolumeName, 
-							      wVolumeNameLength + 1,
-								  (const WCHAR*)((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset),
-								  wVolumeNameLength);
-
-						pszVolumeName[wVolumeNameLength] = L'\0';
+						WCHAR* pszVolumeName = readUtf16String((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset, wVolumeNameLength);
 						m_pVolumeInfo->m_VolumeLabel = CString(pszVolumeName);
-
 						delete[] pszVolumeName;
 					}
 					else
@@ -147,4 +116,93 @@ BOOLEAN ntfs::MFTParser::findVolumeAttributes(AttributeHeader* pAttrHeader)
 
 	return bFoundVolumeInformation & bFoundVolumeName;
 }
+
+void ntfs::MFTParser::findDeletedFiles()
+{
+	iterate(&MFTParser::checkForDeleted);
+}
+
+/*
+   Checks MFT record for corresponding to deleted file/catalog
+   Always returns FALSE to be callable from iterate() function
+ */
+BOOLEAN ntfs::MFTParser::checkForDeleted(MFTEntryHeader* pHeader, UINT64 uRecordAddress)
+{
+	if (pHeader->m_wFlags == DELETED_FILE || pHeader->m_wFlags == DELETED_CATALOG)
+	{
+		AttributeHeader* pAttrHeader = (AttributeHeader*)((CHAR*)pHeader + pHeader->m_wAttributeOffset);
+		
+		if (!pHeader->m_uBaseRecordAddress && pAttrHeader->m_dwAttributeSize)
+		{
+			while (pAttrHeader->m_dwAttributeTypeID != FILE_NAME)
+			{			
+				if (!pAttrHeader->m_dwAttributeSize || pAttrHeader->m_dwAttributeSize > m_pMft->m_wRecordSize)
+				{
+					return FALSE;
+				}
+
+				pAttrHeader = (AttributeHeader*)((CHAR*)pAttrHeader + pAttrHeader->m_dwAttributeSize);
+			}
+
+			FILE_NAME_ATTR* pFileNameAttr = (FILE_NAME_ATTR*)((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset);
+			DeletedFile df;
+
+			df.m_pFileNameAttr = new FILE_NAME_ATTR(*pFileNameAttr);
+			df.m_uRecordAddress = uRecordAddress;
+			df.m_cType = (CHAR)pHeader->m_wFlags;
+			df.m_pszFileName = readUtf16String((CHAR*)pFileNameAttr + FILE_NAME_ATTR_SIZE, pFileNameAttr->m_cNameLength);
+
+			m_pDeletedFiles->emplace_back(std::move(df));
+		}
+	}
+
+	return FALSE;
+}
+
+const std::shared_ptr<std::list<ntfs::DeletedFile>> ntfs::MFTParser::getDeletedFiles() const
+{
+	return m_pDeletedFiles;
+}
+
+inline WCHAR* ntfs::MFTParser::readUtf16String(CHAR* pSource, WORD wLength) const
+{
+	WCHAR* pStr = new WCHAR[wLength + 1];
+
+	wmemcpy_s(pStr, wLength + 1, (const WCHAR*)pSource, wLength);
+	pStr[wLength] = L'\0';
+
+	return pStr;
+}
+
+// For every record in MFT invokes passed pointer to member function
+void ntfs::MFTParser::iterate(PointerToMemberFunction jobFunc)
+{
+	CHAR* pszRecord = new CHAR[m_pMft->m_wRecordSize];
+	DWORD dwSectorsRead = 0;
+	DWORD dwBytesRead;
+	BOOLEAN bDone = FALSE;
+
+	for (int i = 0; !bDone && i < m_pRunlist->size(); i++, dwSectorsRead = 0)
+	{
+		UINT64 uDistanceToMove = (UINT64)(m_pMft->m_dwVolumeStartingAddress + m_pRunlist->at(i).m_lRunOffset * m_pMft->m_cSectorsPerCluster) * SECTOR_SIZE;
+		seek(uDistanceToMove, FILE_BEGIN);
+
+		do
+		{
+			ReadFile(m_hDrive, pszRecord, m_pMft->m_wRecordSize, &dwBytesRead, NULL);
+			dwSectorsRead += m_pMft->m_wRecordSize / SECTOR_SIZE;
+
+			if ((bDone = (this->*jobFunc)((MFTEntryHeader*)pszRecord, uDistanceToMove + dwSectorsRead * SECTOR_SIZE - m_pMft->m_wRecordSize)))
+			{
+				break;
+			}
+
+		} while (dwSectorsRead < m_pRunlist->at(i).m_uRunLength * m_pMft->m_cSectorsPerCluster);
+	}
+
+	delete[] pszRecord;
+}
+
+
+
 

@@ -1,8 +1,6 @@
 #include "DrivesInfo.h"
 #include "PartitionTableParser.h"
 
-#include <iostream>
-
 ntfs::DrivesInfo::DrivesInfo(const std::shared_ptr<std::list<PartitionTableEntry>> pDrives)
 	: m_pLogicalDrives(pDrives),
 	m_pDrivesMFT(std::make_shared<std::vector<MFTInfo>>(pDrives->size())),
@@ -55,10 +53,9 @@ void ntfs::DrivesInfo::getDrivesInfo()
 			m_pDrivesMFT->at(i).m_cSectorsPerCluster = *(caSector + 0xd);
 		}
 
-		/*
-		A positive value denotes the number of clusters in a File Record Segment. A negative value denotes the amount of bytes in a File
-		Record Segment, in which case the size is 2 to the power of the absolute value
-		*/
+		
+		/*A positive value denotes the number of clusters in a File Record Segment. A negative value denotes the amount of bytes in a File
+		Record Segment, in which case the size is 2 to the power of the absolute value*/	
 		if ((CHAR)*(caSector + 0x40) < 0)
 		{
 			m_pDrivesMFT->at(i).m_wRecordSize = 1 << (-1 * (*(caSector + 0x40)));

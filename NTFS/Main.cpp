@@ -1,8 +1,8 @@
 #include "PartitionTableParser.h"
 #include "DrivesInfo.h"
 #include "MFTParser.h"
+#include "DeletedFile.h"
 
-#include <clocale>
 #include <iostream>
 
 int main(int argc, char** argv)
@@ -21,17 +21,14 @@ int main(int argc, char** argv)
 
 			for (auto it = pDrivesMft->cbegin(); it != pDrivesMft->cend(); ++it)
 			{
-				setlocale(LC_ALL, "Russian");
-
 				ntfs::MFTParser mftParser(*it);
 				mftParser.readFirstRecord();
 
 				mftParser.findVolumeInformation();
 				ntfs::VolumeInfo vi = mftParser.getVolumeInfo();
 
-				std::cout << "\n" << "Volume name = " << vi.m_VolumeLabel << "\n";
-				std::cout << "NTFS main version = " << (int)vi.m_VolInfoAttr.m_cMainVersion << "\n";
-				std::cout << "NTFS additional version = " << (int)vi.m_VolInfoAttr.m_cAdditionalVersion << "\n";
+				mftParser.findDeletedFiles();
+				auto list = mftParser.getDeletedFiles();
 			}
 		}
 		catch (std::logic_error error)

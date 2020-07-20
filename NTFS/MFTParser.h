@@ -2,10 +2,13 @@
 
 #include <windows.h>
 #include <atlstr.h>
+#include <list>
+#include <memory>
 
 namespace ntfs
 {
 	struct MFTInfo;
+	struct DeletedFile;
 	class  Runlist;
 
 	struct MFTEntryHeader
@@ -17,11 +20,19 @@ namespace ntfs
 		WORD   m_wSequenceNumber;
 		WORD   m_wHardLinkCount;
 		WORD   m_wAttributeOffset;
-		WORD   m_wFlags; // 0 - deleted, 0x01 - record in use, 0x02 - catalog
+		WORD   m_wFlags; 
 		DWORD  m_dwUsedEntrySize;
 		DWORD  m_dwAllocatedEntrySize;
 		UINT64 m_uBaseRecordAddress;
 		WORD   m_wNextAttributeID;
+	};
+
+	enum MFT_ENTRY_HEADER_FLAGS
+	{
+		DELETED_FILE,
+		FILE,
+		DELETED_CATALOG,
+		CATALOG
 	};
 
 	enum ATTRIBUTE_TYPES
@@ -109,6 +120,8 @@ namespace ntfs
 		ENCRYPTED_FILE = 24000
 	};
 
+#define FILE_NAME_ATTR_SIZE 66 // sizeof(FILE_NAME_ATTR) != real size of that attribute on disk
+
 	struct FILE_NAME_ATTR
 	{
 		UINT64 m_uParentCatalogBaseAddress;
@@ -165,16 +178,28 @@ namespace ntfs
 
 		const VolumeInfo getVolumeInfo() const;
 
-	private:
+		void findDeletedFiles();
 
-		BOOLEAN findVolumeAttributes(AttributeHeader* pAttrHeader);
+		const std::shared_ptr<std::list<DeletedFile>> getDeletedFiles() const;
+
+	private:
+		using PointerToMemberFunction = BOOLEAN(MFTParser::*)(MFTEntryHeader*, UINT64);
+
+		BOOLEAN checkForDeleted(MFTEntryHeader* pHeader, UINT64 uRecordAddress);
+
+		BOOLEAN findVolumeAttributes(MFTEntryHeader* pHeader, UINT64 uAddress);
 
 		BOOLEAN seek(UINT64 uDIstance, DWORD dwMoveMethod) const;
+
+		WCHAR* readUtf16String(CHAR* pSource, WORD wLength) const;
+
+		void iterate(PointerToMemberFunction jobFunc);
 
 		MFTInfo* m_pMft;
 		Runlist* m_pRunlist;
 		HANDLE   m_hDrive;
 		VolumeInfo* m_pVolumeInfo;
+		std::shared_ptr<std::list<DeletedFile>> m_pDeletedFiles;
 	};
 
 } // namespace
