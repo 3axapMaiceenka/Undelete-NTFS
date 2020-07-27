@@ -2,6 +2,7 @@
 #include "DrivesInfo.h"
 #include "MFTParser.h"
 #include "DeletedFile.h"
+#include "NTFSDataStructures.h"
 
 #include <iostream>
 
@@ -22,11 +23,6 @@ int main(int argc, char** argv)
 			for (auto it = pDrivesMft->cbegin(); it != pDrivesMft->cend(); ++it)
 			{
 				ntfs::MFTParser mftParser(*it);
-				mftParser.readFirstRecord();
-
-				mftParser.findVolumeInformation();
-				ntfs::VolumeInfo vi = mftParser.getVolumeInfo();
-
 				mftParser.findDeletedFiles();
 				auto list = mftParser.getDeletedFiles();
 			}

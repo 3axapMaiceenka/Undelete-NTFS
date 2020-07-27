@@ -1,17 +1,17 @@
 #include "DeletedFile.h"
-#include "MFTParser.h"
+#include "NTFSDataStructures.h"
 
 ntfs::DeletedFile::DeletedFile()
 	: m_uRecordAddress(0),
-	m_pFileNameAttr(NULL),
 	m_pszFileName(NULL),
+	m_pFileNameAttr(NULL),
 	m_cType(0)
 { }
 
 ntfs::DeletedFile::DeletedFile(UINT64 uRecordAddress, const FILE_NAME_ATTR& fileNameAttr, const WCHAR* pszFileName, CHAR cType)
 	: m_uRecordAddress(uRecordAddress),
-	m_pFileNameAttr(new FILE_NAME_ATTR(fileNameAttr)),
 	m_pszFileName(new WCHAR[wcslen(pszFileName) + 1]),
+	m_pFileNameAttr(new FILE_NAME_ATTR(fileNameAttr)),
 	m_cType(cType)
 {
 	wmemcpy_s(m_pszFileName, wcslen(pszFileName) + 1, pszFileName, wcslen(pszFileName));
@@ -23,8 +23,8 @@ ntfs::DeletedFile::DeletedFile(const DeletedFile& rhs)
 
 ntfs::DeletedFile::DeletedFile(DeletedFile&& rhs) noexcept
 	: m_uRecordAddress(rhs.m_uRecordAddress),
-	m_pFileNameAttr(rhs.m_pFileNameAttr),
 	m_pszFileName(rhs.m_pszFileName),
+	m_pFileNameAttr(rhs.m_pFileNameAttr),
 	m_cType(rhs.m_cType)
 {
 	rhs.m_pFileNameAttr = NULL;
