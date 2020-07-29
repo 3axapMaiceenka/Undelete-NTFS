@@ -74,6 +74,37 @@ ntfs::DeletedFile& ntfs::DeletedFile::operator=(DeletedFile&& rhs) noexcept
 	return *this;
 }
 
+bool ntfs::DeletedFile::operator==(const DeletedFile& rhs) const
+{
+	if (m_pszFileName && rhs.m_pszFileName)
+	{
+		if (wcscmp(m_pszFileName, rhs.m_pszFileName)) return false;
+	}
+	else
+	{
+		if (m_pszFileName != rhs.m_pszFileName) return false;
+	}
+
+	if (m_pFileNameAttr && rhs.m_pFileNameAttr)
+	{
+		return m_pFileNameAttr->m_uParentCatalogBaseAddress == rhs.m_pFileNameAttr->m_uParentCatalogBaseAddress &&
+			   m_pFileNameAttr->m_uModificationTime == rhs.m_pFileNameAttr->m_uModificationTime &&
+			   m_pFileNameAttr->m_uMFTModificationTime == rhs.m_pFileNameAttr->m_uMFTModificationTime &&
+			   m_pFileNameAttr->m_uFileCreationTime == rhs.m_pFileNameAttr->m_uFileCreationTime &&
+			   m_pFileNameAttr->m_uFileAccessTime == rhs.m_pFileNameAttr->m_uFileAccessTime &&
+			   m_cType == rhs.m_cType;
+	}
+	else
+	{
+		return m_pFileNameAttr == rhs.m_pFileNameAttr && m_cType == rhs.m_cType;
+	}
+}
+
+bool ntfs::DeletedFile::operator!=(const DeletedFile& rhs) const
+{
+	return !(*this == rhs);
+}
+
 ntfs::DeletedFile::~DeletedFile()
 {
 	free();

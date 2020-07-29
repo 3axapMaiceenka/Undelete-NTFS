@@ -30,7 +30,7 @@ namespace ntfs
 
 		const std::shared_ptr<std::list<DeletedFile>> getDeletedFiles() const;
 
-		BOOLEAN undelete(const DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName);
+		BOOLEAN undelete(const DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName) const;
 
 	private:
 		using PointerToMemberFunction = BOOLEAN(MFTParser::*)(MFTEntryHeader*, UINT64);
@@ -58,6 +58,8 @@ namespace ntfs
 		BOOLEAN intersect(const Runlist* const pLhs, const Runlist* const pRhs, WORD wLhsRunIndx, WORD wRhsRunIndx) const;
 
 		void undeleteFile(HANDLE hFile, const AttributeHeader* pAttrHeader) const;
+
+		void undeleteDirectory(MFTEntryHeader* pHeader) const;
 
 		UINT64   m_uBitmapOffset;
 		MFTInfo* m_pMft;

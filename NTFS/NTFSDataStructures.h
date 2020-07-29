@@ -9,8 +9,8 @@ namespace ntfs
 	struct MFTEntryHeader
 	{
 		CHAR   m_caSignature[4]; //  "FILE" or "BAAD"
-		WORD   m_wMarkerArrayOffset;
-		WORD   m_wMarkerArraySize;
+		WORD   m_wFixupArrayOffset;
+		WORD   m_wFixupArraySize;
 		UINT64 m_uLSNlogFileNumber;
 		WORD   m_wSequenceNumber;
 		WORD   m_wHardLinkCount;
@@ -157,6 +157,41 @@ namespace ntfs
 	{
 		VOLUME_INFORMATION_ATTR m_VolInfoAttr;
 		CString m_VolumeLabel;
+	};
+
+	struct INDEX_ROOT_ATTR
+	{
+		DWORD m_dwIndexAttributeType; // enum ntfs::ATTRIBUTE_TYPES
+		DWORD m_dwSortingRule;
+		DWORD m_dwIndexRecordSizeInBytes; 
+		CHAR  m_cIndexRecordSizeInClusters;
+		CHAR  m_caUnused[3];
+	};
+
+	struct INDEX_ALLOCATION_ATTR
+	{
+		CHAR   m_caSignature[4]; // "INDX"
+		WORD   m_wFixupArrayOffset;
+		WORD   m_wFixupArraySize; // number of elements
+		UINT64 m_uLogFileLsnumber;
+		UINT64 m_uRecordVCN;
+	};
+
+	struct NodeHeader
+	{
+		DWORD m_dwIndexEntryListOffset;  // relative to the node index header beginning
+		DWORD m_dwEndOfListUsedPartOffset; // the offset of the used portion of the index elements list relative to the node index header beginning
+		// the offset of the end of the allcoated portion of the index elements list buffer relative to the node index header beginning
+		DWORD m_dwEndOfListAllocatedPartOffset; 
+		DWORD m_dwFlags;
+	};
+
+	struct IndexEntry
+	{
+		UINT64 m_uMFTReference;
+		WORD   m_wLength;
+		WORD   m_wFileNameAttrLength;
+		DWORD  m_dwFlags;
 	};
 
 } // namespace

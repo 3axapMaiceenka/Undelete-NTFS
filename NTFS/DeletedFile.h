@@ -26,6 +26,10 @@ namespace ntfs
 
 		DeletedFile& operator=(DeletedFile&& rhs) noexcept;
 
+		bool operator==(const DeletedFile& rhs) const;
+
+		bool operator!=(const DeletedFile& rhs) const;
+
 		~DeletedFile();
 
 		UINT64 m_uRecordAddress;

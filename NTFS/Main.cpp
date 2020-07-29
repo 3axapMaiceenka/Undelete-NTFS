@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 		}
 		catch (std::logic_error error)
 		{
-			std::cout << error.what();
+			std::cout << error.what() << std::endl;
 		}
 	}
 	catch (std::runtime_error error)

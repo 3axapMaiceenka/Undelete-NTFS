@@ -141,14 +141,17 @@ BOOLEAN ntfs::MFTParser::checkForDeleted(ntfs::MFTEntryHeader* pHeader, UINT64 u
 				return FALSE;
 			}
 
-			LONG lFilePointerLow = 0;
-			LONG lFilePointerHigh = 0;
-			lFilePointerLow = SetFilePointer(m_hDrive, lFilePointerLow, &lFilePointerHigh, FILE_CURRENT);
+			if (pHeader->m_wFlags == DELETED_FILE)
+			{
+				LONG lFilePointerLow = 0;
+				LONG lFilePointerHigh = 0;
+				lFilePointerLow = SetFilePointer(m_hDrive, lFilePointerLow, &lFilePointerHigh, FILE_CURRENT);
 
-			BOOLEAN bIsDataCleared = isDataCleared(pAttrHeader);
-			SetFilePointer(m_hDrive, lFilePointerLow, &lFilePointerHigh, FILE_BEGIN);
+				BOOLEAN bIsDataCleared = isDataCleared(pAttrHeader);
+				SetFilePointer(m_hDrive, lFilePointerLow, &lFilePointerHigh, FILE_BEGIN);
 
-			if (bIsDataCleared) return FALSE;
+				if (bIsDataCleared) return FALSE;
+			}
 
 			const FILE_NAME_ATTR* pFileNameAttr = (FILE_NAME_ATTR*)((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset);
 			DeletedFile df;
@@ -209,7 +212,7 @@ void ntfs::MFTParser::iterate(PointerToMemberFunction jobFunc)
 	delete[] pszRecord;
 }
 
-BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName)
+BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName) const
 {
 	LPSTR lpszCurrentDirectory = new CHAR[BUF_SIZE];
 	GetCurrentDirectory(BUF_SIZE, lpszCurrentDirectory);
@@ -242,8 +245,12 @@ BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, L
 	}
 	else
 	{
-		// undelete directory
-		static_assert("Directory undeleting not implemented yet!");
+		CreateDirectoryW(pDeletedFile->m_pszFileName, NULL);
+		SetCurrentDirectoryW(pDeletedFile->m_pszFileName);
+
+		undeleteDirectory(pHeader);
+
+		SetCurrentDirectory("..");
 	}
 
 	SetCurrentDirectory(lpszCurrentDirectory);
@@ -402,7 +409,7 @@ BOOLEAN ntfs::MFTParser::isDataCleared(const AttributeHeader* pAttrHeader) const
 	return bResult;
 }
 
-/* Reads $Bitmap file and checks, if uNumberOfClusters clusters are allocated 
+/* Reads $Bitmap file and checks if uNumberOfClusters clusters are allocated 
    File pointer is set to the needed position in $Data attribute of the $Bitmap file
    uOffsetInBytes is the offset from the current file pointer position to the first byte, which contains bits defining needed clusters state
    uOffsetInBits is the offset in that byte to the first bit, corresponding to the first needed cluster */
@@ -475,6 +482,40 @@ inline const ntfs::AttributeHeader* ntfs::MFTParser::findAttr(const AttributeHea
 	return pAttrHeader;
 }
 
+void ntfs::MFTParser::undeleteDirectory(MFTEntryHeader* pHeader) const
+{
+	const AttributeHeader* pAttrHeader = (AttributeHeader*)((CHAR*)pHeader + pHeader->m_wAttributeOffset);
+	pAttrHeader = findAttr(pAttrHeader, INDEX_ROOT);
+
+	const INDEX_ROOT_ATTR* pIndexRoot = (INDEX_ROOT_ATTR*)((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset);
+	const NodeHeader* pNodeHeader = (NodeHeader*)(pIndexRoot + 1);
+	DWORD dwOffset = pNodeHeader->m_dwIndexEntryListOffset;
+	const IndexEntry* pIndexEntry = (IndexEntry*)((CHAR*)pNodeHeader + dwOffset);
+	
+	while (dwOffset < pNodeHeader->m_dwEndOfListUsedPartOffset)
+	{
+		if (pIndexEntry->m_wLength && pIndexEntry->m_wFileNameAttrLength)
+		{
+			DeletedFile df;	
+			FILE_NAME_ATTR* pFileNameAttr = (FILE_NAME_ATTR*)(pIndexEntry + 1);
+			df.m_pszFileName = readUtf16String((CHAR*)pFileNameAttr + FILE_NAME_ATTR_SIZE, pFileNameAttr->m_cNameLength);
+			df.m_pFileNameAttr = new FILE_NAME_ATTR(*pFileNameAttr);
+
+			auto dfIter = std::find(m_pDeletedFiles->cbegin(), m_pDeletedFiles->cend(), df);
+			if (dfIter != m_pDeletedFiles->cend())
+			{
+				undelete(&(*dfIter), ".");
+			}
+		}																					
+		else																				
+		{																					
+			break;
+		}
+
+		pIndexEntry = (IndexEntry*)((CHAR*)pIndexEntry + pIndexEntry->m_wLength);
+		dwOffset += pIndexEntry->m_wLength;
+	}
+}
 
 
 
