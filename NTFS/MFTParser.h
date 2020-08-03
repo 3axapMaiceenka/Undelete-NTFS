@@ -24,13 +24,15 @@ namespace ntfs
 
 		~MFTParser();
 
-		const VolumeInfo getVolumeInfo() const;
+		MFTParser(MFTParser&& rhs) noexcept;
+
+		const std::shared_ptr<VolumeInfo> getVolumeInfo() const;
 
 		void findDeletedFiles();
 
 		const std::shared_ptr<std::list<DeletedFile>> getDeletedFiles() const;
 
-		BOOLEAN undelete(const DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName) const;
+		BOOLEAN undelete(const DeletedFile* const pDeletedFile, LPCWSTR lpszDirectoryName) const;
 
 	private:
 		using PointerToMemberFunction = BOOLEAN(MFTParser::*)(MFTEntryHeader*, UINT64);
@@ -66,7 +68,7 @@ namespace ntfs
 		Runlist* m_pRunlist;
 		Runlist* m_pBitmapRunlist;
 		HANDLE   m_hDrive;
-		VolumeInfo* m_pVolumeInfo;
+		std::shared_ptr<VolumeInfo> m_pVolumeInfo;
 		std::shared_ptr<std::list<DeletedFile>> m_pDeletedFiles;
 	};
 

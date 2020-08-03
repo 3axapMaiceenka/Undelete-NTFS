@@ -65,7 +65,7 @@ void ntfs::DrivesInfo::getDrivesInfo()
 		}
 		
 		m_pDrivesMFT->at(i).m_ulFirstMFTCluster = *((UINT64*)(caSector + 0x30));
-		m_pDrivesMFT->at(i).m_ulNumnerOfSectors = *((UINT64*)(caSector + 0x28));
+		m_pDrivesMFT->at(i).m_ulNumberOfSectors = *((UINT64*)(caSector + 0x28));
 		m_pDrivesMFT->at(i).m_dwVolumeStartingAddress = entry->m_dwLBAFirstSector;
 		++entry;
 	}

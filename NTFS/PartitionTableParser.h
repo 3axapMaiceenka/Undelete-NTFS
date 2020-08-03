@@ -4,50 +4,55 @@
 #include <memory>
 #include <list>
 
+namespace ntfs
+{
+
 #define SECTOR_SIZE 512
 #define PHYSICAL_DRIVE "\\\\.\\PhysicalDrive0"
 
-enum PartitionType
-{
-	EXTENDED_PARTITION = 5,
-	NTFS_PARTITION = 7
-};
+	enum PartitionType
+	{
+		EXTENDED_PARTITION = 5,
+		NTFS_PARTITION = 7
+	};
 
-struct PartitionTableEntry
-{
-	CHAR  m_cStatus;
-	CHAR  m_cFirstHead;
-	CHAR  m_cFirstSector;   // sector in bits 5-0, bits 6-7 are high bits of cylinder
-	CHAR  m_cFirstCylinder; // bits 7-0 of cylinder
-	CHAR  m_cPartitionType;
-	CHAR  m_cLastHead;
-	CHAR  m_cLastSector;    // sector in bits 5-0, bits 6-7 are high bits of cylinder
-	CHAR  m_cLastCylinder;  // bits 7-0 of cylinder
-	DWORD m_dwLBAFirstSector;
-	DWORD m_dwNumberOfSectors;
-};
+	struct PartitionTableEntry
+	{
+		CHAR  m_cStatus;
+		CHAR  m_cFirstHead;
+		CHAR  m_cFirstSector;   // sector in bits 5-0, bits 6-7 are high bits of cylinder
+		CHAR  m_cFirstCylinder; // bits 7-0 of cylinder
+		CHAR  m_cPartitionType;
+		CHAR  m_cLastHead;
+		CHAR  m_cLastSector;    // sector in bits 5-0, bits 6-7 are high bits of cylinder
+		CHAR  m_cLastCylinder;  // bits 7-0 of cylinder
+		DWORD m_dwLBAFirstSector;
+		DWORD m_dwNumberOfSectors;
+	};
 
-/*
-	Finds all logical drives with NTFS file system
-*/
+	/*
+		Finds all logical drives with NTFS file system
+	*/
 
-class PartitionTableParser
-{
-public:
-	
-	void parse();
+	class PartitionTableParser
+	{
+	public:
 
-	PartitionTableParser();
+		void parse();
 
-	~PartitionTableParser();
+		PartitionTableParser();
 
-	const std::shared_ptr<std::list<PartitionTableEntry>> getLogicalDrives() const;
+		~PartitionTableParser();
 
-private:
+		const std::shared_ptr<std::list<PartitionTableEntry>> getLogicalDrives() const;
 
-	void parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec);
+	private:
 
-	std::shared_ptr<std::list<PartitionTableEntry>> m_pLogicalDrives; // logical drives with NTFS file system
-	HANDLE m_hPhysicalDrive;
-};
+		void parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec);
+
+		std::shared_ptr<std::list<PartitionTableEntry>> m_pLogicalDrives; // logical drives with NTFS file system
+		HANDLE m_hPhysicalDrive;
+	};
+
+}
 

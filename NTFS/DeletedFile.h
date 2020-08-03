@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <iostream>
 
 namespace ntfs
 {
@@ -38,4 +39,10 @@ namespace ntfs
 		CHAR m_cType; // ntfs::MFT_ENTRY_HEADER_FLAGS.DELETED_FILE or ntfs::MFT_ENTRY_HEADER_FLAGS.DELETED_CATALOG
 	};
 
-}
+	std::ostream& printDate(std::ostream& os, const char* message, const SYSTEMTIME& systemTime);
+
+	FILETIME constructFileTime(UINT64 uValue);
+
+} // namespace
+
+std::ostream& operator<<(std::ostream& os, const ntfs::DeletedFile& df);

@@ -5,17 +5,16 @@
 #include <list>
 #include <vector>
 
-struct PartitionTableEntry;
-
 namespace ntfs
 {
+	struct PartitionTableEntry;
 
 #define OEM_ID "NTFS    "
 #define OEM_ID_LENGTH 9
 
 	struct MFTInfo
 	{
-		UINT64 m_ulNumnerOfSectors;
+		UINT64 m_ulNumberOfSectors;
 		UINT64 m_ulFirstMFTCluster;
 		DWORD  m_dwVolumeStartingAddress;
 		WORD   m_wRecordSize; // in bytes

@@ -156,7 +156,18 @@ namespace ntfs
 	struct VolumeInfo
 	{
 		VOLUME_INFORMATION_ATTR m_VolInfoAttr;
-		CString m_VolumeLabel;
+		WCHAR* m_pszVolumeLabel = NULL;
+
+		~VolumeInfo() { delete[] m_pszVolumeLabel; }
+
+		VolumeInfo() = default;
+
+		VolumeInfo(VolumeInfo&& rhs) noexcept
+			: m_VolInfoAttr(rhs.m_VolInfoAttr),
+			m_pszVolumeLabel(rhs.m_pszVolumeLabel)
+		{
+			rhs.m_pszVolumeLabel = NULL;
+		}
 	};
 
 	struct INDEX_ROOT_ATTR

@@ -12,6 +12,7 @@ ntfs::MFTParser::MFTParser(const MFTInfo& mftInfo)
 	: m_pMft(new MFTInfo(mftInfo)),
 	m_pRunlist(NULL),
 	m_pBitmapRunlist(NULL),
+	m_pVolumeInfo(std::make_shared<VolumeInfo>()),
 	m_pDeletedFiles(std::make_shared<std::list<DeletedFile>>())
 {
 	m_hDrive = CreateFile(PHYSICAL_DRIVE, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -26,7 +27,6 @@ ntfs::MFTParser::~MFTParser()
 	CloseHandle(m_hDrive);
 	delete m_pRunlist;
 	delete m_pBitmapRunlist;
-	delete m_pVolumeInfo;
 }
 
 void ntfs::MFTParser::readFirstRecord()
@@ -58,9 +58,9 @@ inline BOOLEAN ntfs::MFTParser::seek(UINT64 uDistance, DWORD dwMoveMethod) const
 	return SetFilePointer(m_hDrive, lDistanceToMoveLow, &lDistanceToMoveHigh, dwMoveMethod) == INVALID_SET_FILE_POINTER;
 }
 
-const ntfs::VolumeInfo ntfs::MFTParser::getVolumeInfo() const
+const std::shared_ptr<ntfs::VolumeInfo> ntfs::MFTParser::getVolumeInfo() const
 {
-	return *m_pVolumeInfo;
+	return m_pVolumeInfo;
 }
 
 // checks if record corresponds to $Volume file, if so, saves volume attributes
@@ -85,18 +85,18 @@ BOOLEAN ntfs::MFTParser::findVolumeAttributes(MFTEntryHeader* pHeader, UINT64 uA
 				{
 					bFoundVolumeName = TRUE;
 					WORD wVolumeNameLength = (WORD)pAttrHeader->m_Attr.m_Resident.m_dwContentSize / sizeof(WCHAR);
-					
-					if (!m_pVolumeInfo) m_pVolumeInfo = new VolumeInfo;
 
 					if (wVolumeNameLength)
 					{
-						WCHAR* pszVolumeName = readUtf16String((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset, wVolumeNameLength);
-						m_pVolumeInfo->m_VolumeLabel = CString(pszVolumeName);
-						delete[] pszVolumeName;
+						m_pVolumeInfo->m_pszVolumeLabel =
+							readUtf16String((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset, wVolumeNameLength);
 					}
 					else
 					{
-						m_pVolumeInfo->m_VolumeLabel = CString(L"Empty volume name");
+						auto wLength = wcslen(L"Empty volume name");
+						m_pVolumeInfo->m_pszVolumeLabel = new WCHAR[wLength + 1];
+						wmemcpy_s(m_pVolumeInfo->m_pszVolumeLabel, wLength + 1, L"Empty volume name", wLength);
+						m_pVolumeInfo->m_pszVolumeLabel[wLength] = L'\0';
 					}
 				}
 				else
@@ -106,8 +106,6 @@ BOOLEAN ntfs::MFTParser::findVolumeAttributes(MFTEntryHeader* pHeader, UINT64 uA
 						VOLUME_INFORMATION_ATTR* pVolumeInfo = 
 						(VOLUME_INFORMATION_ATTR*)((CHAR*)pAttrHeader + pAttrHeader->m_Attr.m_Resident.m_wContentOffset);
 						bFoundVolumeInformation = TRUE;
-						
-						if (!m_pVolumeInfo) m_pVolumeInfo = new VolumeInfo;
 
 						m_pVolumeInfo->m_VolInfoAttr = *pVolumeInfo;
 					}
@@ -212,11 +210,11 @@ void ntfs::MFTParser::iterate(PointerToMemberFunction jobFunc)
 	delete[] pszRecord;
 }
 
-BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, LPCSTR lpszDirectoryName) const
+BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, LPCWSTR lpszDirectoryName) const
 {
-	LPSTR lpszCurrentDirectory = new CHAR[BUF_SIZE];
-	GetCurrentDirectory(BUF_SIZE, lpszCurrentDirectory);
-	SetCurrentDirectory(lpszDirectoryName);
+	LPWSTR lpszCurrentDirectory = new WCHAR[BUF_SIZE];
+	GetCurrentDirectoryW(BUF_SIZE, lpszCurrentDirectory);
+	SetCurrentDirectoryW(lpszDirectoryName);
 
 	DWORD dwNumberOfBytes;
 	LPSTR lpszRecord = new CHAR[m_pMft->m_wRecordSize];
@@ -231,8 +229,8 @@ BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, L
 		HANDLE hUndeletedFile = CreateFileW(pDeletedFile->m_pszFileName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (!hUndeletedFile)
 		{
-			SetCurrentDirectory(lpszCurrentDirectory);
-			delete lpszCurrentDirectory;
+			SetCurrentDirectoryW(lpszCurrentDirectory);
+			delete[] lpszCurrentDirectory;
 			return FALSE;
 		}
 
@@ -240,7 +238,6 @@ BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, L
 		pAttrHeader = findAttr(pAttrHeader, DATA);
 
 		undeleteFile(hUndeletedFile, pAttrHeader);
-
 		CloseHandle(hUndeletedFile);
 	}
 	else
@@ -249,14 +246,13 @@ BOOLEAN ntfs::MFTParser::undelete(const ntfs::DeletedFile* const pDeletedFile, L
 		SetCurrentDirectoryW(pDeletedFile->m_pszFileName);
 
 		undeleteDirectory(pHeader);
-
 		SetCurrentDirectory("..");
 	}
 
-	SetCurrentDirectory(lpszCurrentDirectory);
+	SetCurrentDirectoryW(lpszCurrentDirectory);
 	
-	delete lpszCurrentDirectory;
-	delete lpszRecord;
+	delete[] lpszCurrentDirectory;
+	delete[] lpszRecord;
 	
 	return TRUE;
 }
@@ -504,7 +500,7 @@ void ntfs::MFTParser::undeleteDirectory(MFTEntryHeader* pHeader) const
 			auto dfIter = std::find(m_pDeletedFiles->cbegin(), m_pDeletedFiles->cend(), df);
 			if (dfIter != m_pDeletedFiles->cend())
 			{
-				undelete(&(*dfIter), ".");
+				undelete(&(*dfIter), L".");
 			}
 		}																					
 		else																				
@@ -515,6 +511,21 @@ void ntfs::MFTParser::undeleteDirectory(MFTEntryHeader* pHeader) const
 		pIndexEntry = (IndexEntry*)((CHAR*)pIndexEntry + pIndexEntry->m_wLength);
 		dwOffset += pIndexEntry->m_wLength;
 	}
+}
+
+ntfs::MFTParser::MFTParser(MFTParser&& rhs) noexcept
+	: m_uBitmapOffset(rhs.m_uBitmapOffset),
+	m_pMft(rhs.m_pMft),
+	m_pRunlist(rhs.m_pRunlist),
+	m_pBitmapRunlist(rhs.m_pBitmapRunlist),
+	m_hDrive(rhs.m_hDrive)
+{
+	rhs.m_uBitmapOffset = 0;
+	rhs.m_pMft = NULL;
+	rhs.m_pRunlist = rhs.m_pBitmapRunlist = NULL;
+	rhs.m_hDrive = NULL;
+	m_pVolumeInfo = std::move(rhs.m_pVolumeInfo);
+	m_pDeletedFiles = std::move(rhs.m_pDeletedFiles);
 }
 
 

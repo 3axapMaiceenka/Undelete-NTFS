@@ -1,7 +1,7 @@
 #include "PartitionTableParser.h"
 #include <stdexcept>
 
-PartitionTableParser::PartitionTableParser()
+ntfs::PartitionTableParser::PartitionTableParser()
 	: m_pLogicalDrives(std::make_shared<std::list<PartitionTableEntry>>())
 {
 	m_hPhysicalDrive = CreateFile(PHYSICAL_DRIVE, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -11,17 +11,17 @@ PartitionTableParser::PartitionTableParser()
 	}
 }
 
-PartitionTableParser::~PartitionTableParser()
+ntfs::PartitionTableParser::~PartitionTableParser()
 {
 	CloseHandle(m_hPhysicalDrive);
 }
 
-const std::shared_ptr<std::list<PartitionTableEntry>> PartitionTableParser::getLogicalDrives() const
+const std::shared_ptr<std::list<ntfs::PartitionTableEntry>> ntfs::PartitionTableParser::getLogicalDrives() const
 { 
 	return m_pLogicalDrives; 
 }
 
-void PartitionTableParser::parse()
+void ntfs::PartitionTableParser::parse()
 {
 	CHAR caSector[SECTOR_SIZE];
 	DWORD dwNumberOfBytes = 0;
@@ -54,7 +54,7 @@ void PartitionTableParser::parse()
 	parseExetendedPartition(dwPrimaryExPartitionFirstSec); // throws std::runtime_error
 }
 
-void PartitionTableParser::parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec)
+void ntfs::PartitionTableParser::parseExetendedPartition(DWORD dwPrimaryExPartitionFirstSec)
 {
 	CHAR caSector[SECTOR_SIZE];
 	DWORD dwPartitionFirstSector = dwPrimaryExPartitionFirstSec;

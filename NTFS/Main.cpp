@@ -1,42 +1,15 @@
-#include "PartitionTableParser.h"
-#include "DrivesInfo.h"
-#include "MFTParser.h"
-#include "DeletedFile.h"
-#include "NTFSDataStructures.h"
-
-#include <iostream>
+#include "UserInterface.h"
 
 int main(int argc, char** argv)
 {
-	try
+	ntfs::Controller controller;
+	if (!controller.start())
 	{
-		PartitionTableParser parser;
-		parser.parse();
-
-		try
-		{
-			ntfs::DrivesInfo di(parser.getLogicalDrives());
-			di.getDrivesInfo();
-
-			auto pDrivesMft = di.getDrivesMFT();
-
-			for (auto it = pDrivesMft->cbegin(); it != pDrivesMft->cend(); ++it)
-			{
-				ntfs::MFTParser mftParser(*it);
-				mftParser.findDeletedFiles();
-				auto list = mftParser.getDeletedFiles();
-			}
-		}
-		catch (std::logic_error error)
-		{
-			std::cout << error.what() << std::endl;
-		}
-	}
-	catch (std::runtime_error error)
-	{
-		std::cout << error.what() << std::endl;
+		return 1;
 	}
 
-	system("pause");
+	ntfs::UserInterface ui(controller); 
+	ui.start();
+
 	return 0;
 }
